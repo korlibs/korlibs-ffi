@@ -25,10 +25,12 @@ private class FFIBuilderProcessor(val environment: SymbolProcessorEnvironment) :
         val mainPlatform = if (isCommon) MetadataPlatformInfo else environment.platforms.first()
         val isJvm = if (!isCommon && mainPlatform is JvmPlatformInfo) true else false
         val isNative = if (!isCommon && mainPlatform is NativePlatformInfo) true else false
+        val isJs = if (!isCommon && mainPlatform is JsPlatformInfo) true else false
 
         val casts = when {
             isJvm -> jnaCasts
             isNative -> knativeCasts
+            isJs -> denoCasts
             else -> defaultCasts
         }
 
@@ -59,15 +61,26 @@ private class FFIBuilderProcessor(val environment: SymbolProcessorEnvironment) :
                         val expectActual = if (isCommon) "expect" else "actual"
                         val onlyActual = if (isCommon) "" else "actual"
                         it.appendLine("$visibility $expectActual class $classNameImpl${if (isCommon) "()" else " actual constructor()"} : $classNameIfcQualified {")
+                        if (isJs) {
+                            it.appendLine("  private val __all__$classNameImpl = __load_$classNameImpl()")
+                            it.appendLine("  private val __$classNameImpl = __all__$classNameImpl.symbols")
+                        }
                         for (func in sym.getDeclaredFunctions()) {
                             val params = func.parameters.asString()
                             val paramsCall = func.parameters.asCallString(casts)
                             val body = when {
                                 isCommon -> ""
-                                isJvm || isNative -> " = __$classNameImpl.${func.sname}($paramsCall)${casts.cast("", func.returnType)}"
+                                isJvm || isNative || isJs -> {
+                                    " = ${casts.cast("__$classNameImpl.${func.sname}($paramsCall)", func.returnType)}"
+                                }
                                 else -> " = TODO()"
                             }
                             it.appendLine("  $onlyActual override fun ${func.sname}($params): ${func.returnType.asString()}$body")
+                        }
+                        when {
+                            isCommon -> it.appendLine("  $onlyActual override fun close()")
+                            isJs -> it.appendLine("  $onlyActual override fun close() { __all__$classNameImpl.close() }")
+                            else -> it.appendLine("  $onlyActual override fun close() = Unit")
                         }
                         it.appendLine("}")
 
@@ -76,6 +89,15 @@ private class FFIBuilderProcessor(val environment: SymbolProcessorEnvironment) :
                         val libraryNameWin = libs["windowsLib"] ?: libs["commonLib"] ?: "msvcrt"
                         val libraryNameMac = libs["macosLib"] ?: libs["commonLib"] ?: "/usr/lib/libSystem.dylib"
                         val libraryNameLinux = libs["linuxLib"] ?: libs["commonLib"] ?: "libc"
+
+                        val callbackTypes = arrayListOf<KSTypeReference>()
+                        for (func in sym.getDeclaredFunctions()) {
+                            for (param in func.parameters) {
+                                if (param.type.asString().startsWith("FFIFunctionRef<")) {
+                                    callbackTypes += param.type
+                                }
+                            }
+                        }
 
                         when {
                             isJvm -> {
@@ -107,6 +129,20 @@ private class FFIBuilderProcessor(val environment: SymbolProcessorEnvironment) :
                                 }
                                 it.appendLine("}")
                             }
+                            isJs -> {
+                                it.appendLine("fun DenoPointer_to_FFIPointer(v: dynamic): FFIPointer = FFIPointer(js(\"Deno.UnsafePointer.value(v)\").toString().toLong())")
+                                it.appendLine("fun FFIPointer_to_DenoPointer(v: FFIPointer): dynamic { val vv = v.address.toString(); return js(\"Deno.UnsafePointer.create(BigInt(vv))\") }")
+
+                                it.appendLine("private fun  __load_$classNameImpl() = js(\"\"\"")
+                                it.appendLine("  (typeof Deno === 'undefined') ? {} : Deno.dlopen(Deno.build.os === 'windows' ? '$libraryNameWin' : Deno.build.os === 'darwin' ? '$libraryNameMac' : '$libraryNameLinux', {")
+                                for (func in sym.getDeclaredFunctions()) {
+                                    it.appendLine("    \"${func.sname}\": { parameters: [${func.parameters.joinToString(", ") {
+                                        "\"" + jsType(it.type) + "\""
+                                    }}], result: \"${jsType(func.returnType)}\" },")
+                                }
+                                it.appendLine("  })")
+                                it.appendLine("\"\"\")")
+                            }
                             else -> Unit
                         }
                     }
@@ -116,9 +152,39 @@ private class FFIBuilderProcessor(val environment: SymbolProcessorEnvironment) :
         return emptyList()
     }
 
+    // `void`, `bool`, `u8`, `i8`, `u16`, `i16`, `u32`, `i32`, `u64`, `i64`, `usize`, `isize`, `f32`, `f64`, `pointer`, `buffer`, `function`, `struct`
+    private fun jsType(type: KSTypeReference?): String = when (type.asString()) {
+        "Unit" -> "void"
+        "Boolean" -> "bool"
+        "UByte" -> "u8"
+        "Byte" -> "i8"
+        "UShort" -> "u16"
+        "Char" -> "u16"
+        "Short" -> "i16"
+        "UInt" -> "u32"
+        "Int" -> "i32"
+        "ULong" -> "u64"
+        "Long" -> "i64"
+        "Float" -> "f32"
+        "Double" -> "f64"
+        "FFIPointer" -> "pointer"
+        "String" -> "pointer"
+        else -> type.asString()
+    }
+
     val defaultCasts = object : PlatformCasts {}
+    val denoCasts = object : PlatformCasts {
+        override fun cast(str: String, type: KSTypeReference?): String = type.asString().let { if (it == "FFIPointer") "DenoPointer_to_FFIPointer($str)" else str }
+        override fun revCast(str: String, type: KSTypeReference?): String = type.asString().let { if (it == "FFIPointer") "FFIPointer_to_DenoPointer($str)" else str }
+    }
     val jnaCasts = object : PlatformCasts {
-        override fun typeProcessor(type: KSTypeReference?): String = type.asString().let { if (it == "FFIPointer") "com.sun.jna.Pointer" else it }
+        override fun typeProcessor(type: KSTypeReference?): String = type.asString().let {
+            when {
+                it.startsWith("FFIFunctionRef<") -> "com.sun.jna.Pointer"
+                it == "FFIPointer" -> "com.sun.jna.Pointer"
+                else -> it
+            }
+        }
         override fun cast(str: String, type: KSTypeReference?): String = type.asString().let { if (it == "FFIPointer") "$str.toFFIPointer()" else str }
         override fun revCast(str: String, type: KSTypeReference?): String = type.asString().let { if (it == "FFIPointer") "$str.toPointer()" else str }
     }
@@ -146,3 +212,14 @@ private fun List<KSValueParameter>.asTypeString(casts: PlatformCasts = PlatformC
 private fun List<KSValueParameter>.asCallString(casts: PlatformCasts = PlatformCasts): String = joinToString(", ") {
     casts.revCast("${it.name?.asString()}", it.type)
 }
+
+/*
+
+val __TestMathFFI_FFIImpl = js("""
+    Deno.dlopen("libc", {
+        "cosf": { parameters: ["float"], result: "float" },
+        "malloc": { parameters: ["int"], result: "pointer" },
+    })
+""".trimIndent())
+
+ */

@@ -5,10 +5,16 @@ import kotlin.test.*
 class FFIGenerationTest {
     @Test
     fun test() {
-        assertEquals(1f, TestMathFFI.cosf(0f))
-        TestMathFFI.puts("hello world\r\n")
-        val ptr = TestMathFFI.malloc(100)
-        println(ptr)
-        TestMathFFI.free(ptr)
+        if (!isSupportedFFI) return
+
+        TestMathFFI().use { lib ->
+            assertEquals(1f, lib.cosf(0f))
+            //lib.puts("hello world\r\n")
+            val ptr = lib.malloc(40)
+            //TestMathFFI.qsort(ptr, 10, 4, FFIFunctionRef { l, r -> 0 })
+            println(ptr)
+            lib.free(ptr)
+            println("AFTER FREE: $ptr")
+        }
     }
 }
