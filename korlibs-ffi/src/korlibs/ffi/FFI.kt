@@ -6,3 +6,8 @@ annotation class FFI(
     val linuxLib: String = "",
     val macosLib: String = "",
 )
+
+annotation class FFINativeInt
+
+annotation class FFIWideString
+
