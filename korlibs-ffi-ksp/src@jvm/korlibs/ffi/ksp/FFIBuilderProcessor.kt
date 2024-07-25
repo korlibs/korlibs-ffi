@@ -12,12 +12,17 @@ class FFIBuilderProcessorProvider : SymbolProcessorProvider {
     }
 }
 
+private interface MetadataPlatformInfo : PlatformInfo {
+    companion object : MetadataPlatformInfo
+    override val platformName: String get() = "Metadata"
+}
+
 private class FFIBuilderProcessor(val environment: SymbolProcessorEnvironment) : SymbolProcessor {
     val codeGenerator: CodeGenerator = environment.codeGenerator
     val logger: KSPLogger = environment.logger
     override fun process(resolver: Resolver): List<KSAnnotated> {
         val isCommon = environment.platforms.size >= 2
-        val mainPlatform = environment.platforms.first()
+        val mainPlatform = if (isCommon) MetadataPlatformInfo else environment.platforms.first()
         val isJvm = if (!isCommon && mainPlatform is JvmPlatformInfo) true else false
         val isNative = if (!isCommon && mainPlatform is NativePlatformInfo) true else false
 

@@ -5,6 +5,9 @@ internal interface TestMathFFI {
     fun cosf(v: Float): Float
     fun malloc(size: Int): FFIPointer
     fun free(ptr: FFIPointer)
+    //fun qsort(base: FFIPointer, number: Int, width: Int, compare: (FFIPointer, FFIPointer) -> Int)
+    fun puts(str: String): Int
+    fun fputs(str: String, file: FFIPointer): Int
 
     companion object : TestMathFFI by TestMathFFI() {
         operator fun invoke(): TestMathFFI = TODO()
