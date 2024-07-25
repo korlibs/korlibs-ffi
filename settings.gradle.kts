@@ -7,6 +7,11 @@ pluginManagement {
         //maven("https://www.jetbrains.com/intellij-repository/releases")
         //maven("https://packages.jetbrains.team/maven/p/ij/intellij-dependencies")
     }
+
+    plugins {
+        id("com.google.devtools.ksp") version "2.0.0-1.0.23"
+        //kotlin("jvm") version "2.0.0"
+    }
 }
 
 plugins {

@@ -971,10 +971,12 @@ class MicroAmper(val project: Project) {
                 main = maybeCreate("${name}Main").also {
                     it.kotlin.srcDirIfExists("src$atName")
                     it.resources.srcDirIfExists("resources$atName")
+                    it.kotlin.srcDir("build/generated/ksp/$name/${name}Main/kotlin")
                 },
                 test = maybeCreate("${name}Test").also {
                     it.kotlin.srcDirIfExists("test$atName")
                     it.resources.srcDirIfExists("testResources$atName")
+                    it.kotlin.srcDir("build/generated/ksp/$name/${name}Test/kotlin")
                 }
             )
         }
@@ -987,6 +989,8 @@ class MicroAmper(val project: Project) {
             ssDependsOn("apple", "posix")
             ssDependsOn("appleNonWatchos", "apple")
             ssDependsOn("appleIosTvos", "apple")
+
+            maybeCreate("commonMain").kotlin.srcDir("build/generated/ksp/metadata/commonMain/kotlin")
 
             for (platform in kotlinPlatforms) {
                 val isMacos = platform.startsWith("macos")
