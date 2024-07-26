@@ -5,12 +5,12 @@ product:
 apply: [ ../common.module-template.yaml ]
 
 dependencies:
-  - ../korlibs-io-fs: exported
-  - ../korlibs-platform: exported
-  - ../korlibs-datastructure: exported
-  - ../korlibs-memory: exported
-  - ../korlibs-annotations: exported
-  - ../korlibs-concurrent: exported
+  - com.soywiz:korlibs-io-fs:6.0.0: exported
+  - com.soywiz:korlibs-platform:6.0.0: exported
+  - com.soywiz:korlibs-datastructure:6.0.0: exported
+  - com.soywiz:korlibs-memory:6.0.0: exported
+  - com.soywiz:korlibs-annotations:6.0.0: exported
+  - com.soywiz:korlibs-concurrent:6.0.0: exported
   - org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0-RC: exported
 
 dependencies@jvm:
