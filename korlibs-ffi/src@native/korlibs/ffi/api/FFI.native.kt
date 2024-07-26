@@ -1,3 +1,3 @@
-package korlibs.ffi
+package korlibs.ffi.api
 
 actual val isSupportedFFI: Boolean = true

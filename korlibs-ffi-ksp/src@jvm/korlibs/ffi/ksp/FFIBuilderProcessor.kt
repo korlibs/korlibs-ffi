@@ -34,7 +34,7 @@ private class FFIBuilderProcessor(val environment: SymbolProcessorEnvironment) :
             else -> defaultCasts
         }
 
-        for (sym in resolver.getSymbolsWithAnnotation("korlibs.ffi.FFI")) {
+        for (sym in resolver.getSymbolsWithAnnotation("korlibs.ffi.api.FFI")) {
             if (sym is KSClassDeclaration) {
                 if (sym.parentDeclaration != null) {
                     logger.error("Only FFI top-level declarations are supported: ${sym.qualifiedName?.asString()}")

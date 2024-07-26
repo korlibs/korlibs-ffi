@@ -1,4 +1,4 @@
-package korlibs.ffi
+package korlibs.ffi.api
 
 annotation class FFI(
     val commonLib: String = "",

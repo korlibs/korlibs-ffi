@@ -1,4 +1,4 @@
-package korlibs.ffi
+package korlibs.ffi.api
 
 @FFI(commonLib = "libc", macosLib = "/usr/lib/libSystem.dylib", windowsLib = "msvcrt")
 internal interface TestMathFFI : AutoCloseable {

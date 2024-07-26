@@ -1,4 +1,4 @@
-package korlibs.ffi
+package korlibs.ffi.api
 
 import kotlin.test.*
 
