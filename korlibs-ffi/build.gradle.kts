@@ -14,6 +14,7 @@ tasks.withType(KspTask::class) {
         this.dependsOn("kspCommonMainKotlinMetadata")
     }
 }
+tasks.getByName("sourcesJar").dependsOn("kspCommonMainKotlinMetadata")
 //tasks.all {
 //    if (this.name.contains("ksp")) {
 //        println("task=$this :: ${this::class}")
