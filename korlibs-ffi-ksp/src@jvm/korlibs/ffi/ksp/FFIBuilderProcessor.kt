@@ -177,8 +177,8 @@ private class FFIBuilderProcessor(val environment: SymbolProcessorEnvironment) :
                                 it.appendLine("  (typeof Deno === 'undefined') ? {} : Deno.dlopen(Deno.build.os === 'windows' ? '$libraryNameWin' : Deno.build.os === 'darwin' ? '$libraryNameMac' : '$libraryNameLinux', {")
                                 for (func in sym.getDeclaredFunctions()) {
                                     it.appendLine("    \"${func.sname}\": { parameters: [${func.parameters.joinToString(", ") {
-                                        "\"" + jsType(it.type) + "\""
-                                    }}], result: \"${jsType(func.returnType)}\" },")
+                                        jsTypeStr(it.type)
+                                    }}], result: ${jsTypeStr(func.returnType)} },")
                                 }
                                 it.appendLine("  })")
                                 it.appendLine("\"\"\")")
@@ -193,7 +193,18 @@ private class FFIBuilderProcessor(val environment: SymbolProcessorEnvironment) :
     }
 
     // `void`, `bool`, `u8`, `i8`, `u16`, `i16`, `u32`, `i32`, `u64`, `i64`, `usize`, `isize`, `f32`, `f64`, `pointer`, `buffer`, `function`, `struct`
-    private fun jsType(type: KSTypeReference?): String = when (type.asString()) {
+    private fun jsTypeStr(type: KSTypeReference?): String {
+        val res = __jsType(type)
+        return when (res) {
+            is String -> "'$res'"
+            else -> TODO()
+        }
+    }
+
+    @Deprecated("Use jsTypeStr")
+    private fun jsType(type: KSTypeReference?): String = __jsType(type).toString()
+
+    private fun __jsType(type: KSTypeReference?): Any = when (type.asString()) {
         "Unit" -> "void"
         "Boolean" -> "bool"
         "UByte" -> "u8"
@@ -227,7 +238,43 @@ private class FFIBuilderProcessor(val environment: SymbolProcessorEnvironment) :
             when (it) {
                 "FFIPointer" -> "FFIPointer_to_DenoPointer($str)"
                 "String" -> "String_to_DenoPointer($str)"
-                else -> str
+                else -> when {
+                    it.startsWith("FFIFunctionRef<") -> {
+                        // fun interface QsortCompareCallback : StdCallLibrary { fun callback(l: FFIPointer, r: FFIPointer): Int }
+                        //"{ l, r -> $str.func(l, r) }"
+
+                        /*
+                                    val name = ffi.getName(callback)
+                                    val funcType = callback.funcType
+                                    val params = callback.paramFuncParams.asString(casts, callback)
+                                    val retType = callback.paramFuncRet.type.asString(casts, callback)
+                                    val NCallbacks = 4
+                                    for (n in 0 until NCallbacks) {
+                                        it.appendLine("private fun ${name}_$n($params): $retType = fun_$name[$n]!!.func(${callback.paramFuncParams.asCallString(casts, callback)})")
+                                    }
+                                    val funcs = (0 until NCallbacks).joinToString(", ") { "staticCFunction(::${name}_$it)" }
+                                    it.appendLine("private val fun_$name = kotlin.arrayOfNulls<${callback.param!!.type.asString()}>($NCallbacks)")
+                                    it.appendLine("private val ref_$name = listOf($funcs)")
+                                    it.appendLine("private fun alloc_$name(cfunc: ${callback.param.type.asString()}) = ref_$name[cfunc.allocIn(fun_$name)]")
+
+                         */
+
+                        val dargs = context.paramFuncParams.withIndex().joinToString(", ") { "__p${it.index}: dynamic" }
+                        val dcall = context.paramFuncParams.asCallString(this, context)
+                        val jsParamTypes = context.paramFuncParams.joinToString(", ") { jsTypeStr(it.type) }
+                        val jsRetType = jsTypeStr(context.paramFuncRet.type)
+
+                        """
+                            run {
+                                val func = fun($dargs): dynamic { return ${context.param!!.name!!.asString()}.func(${dcall}) }
+                                val callback = js("(new Deno.UnsafeCallback({ parameters: [$jsParamTypes], result: $jsRetType }, func))")
+                                compare.closer = { callback.close() }
+                                callback.pointer
+                            }
+                        """.trimIndent()
+                    }
+                    else -> str
+                }
             }
         }
     }
@@ -268,9 +315,7 @@ private class FFIBuilderProcessor(val environment: SymbolProcessorEnvironment) :
                 "FFIFunctionRef" -> {
                     TODO()
                 }
-                else -> {
-                    str
-                }
+                else -> str
             }
         }
         override fun revCast(str: String, type: KSTypeReference?, context: FuncContext): String = type.asString().let {
@@ -350,10 +395,10 @@ private fun KSTypeReference?.asString(casts: PlatformCasts = PlatformCasts, cont
 @JvmName("List_asStringKSTypeReference")
 private fun List<KSTypeReference?>.asString(casts: PlatformCasts = PlatformCasts, context: FuncContext): String = joinToString(", ") { casts.typeProcessor(it, context) }
 @JvmName("List_asStringKSTypeArgument")
-private fun List<KSTypeArgument>.asString(casts: PlatformCasts = PlatformCasts, context: FuncContext): String = withIndex().joinToString(", ") { "p${it.index}: ${casts.typeProcessor(it.value.type, context)}" }
+private fun List<KSTypeArgument>.asString(casts: PlatformCasts = PlatformCasts, context: FuncContext): String = withIndex().joinToString(", ") { "__p${it.index}: ${casts.typeProcessor(it.value.type, context)}" }
 
 @JvmName("List_asCallStringKSTypeArgument")
-private fun List<KSTypeArgument>.asCallString(casts: PlatformCasts = PlatformCasts, context: FuncContext): String = withIndex().joinToString(", ") { casts.cast("p${it.index}", it.value.type, context) }
+private fun List<KSTypeArgument>.asCallString(casts: PlatformCasts = PlatformCasts, context: FuncContext): String = withIndex().joinToString(", ") { casts.cast("__p${it.index}", it.value.type, context) }
 
 private fun List<KSValueParameter>.asString(casts: PlatformCasts = PlatformCasts, context: FuncContext): String = joinToString(", ") { "${it.name?.asString()}: ${casts.typeProcessor(it.type, context.copy(param = it))}" }
 private fun List<KSValueParameter>.asTypeString(casts: PlatformCasts = PlatformCasts, context: FuncContext): String = joinToString(", ") { casts.typeProcessor(it.type, context.copy(param = it)) }

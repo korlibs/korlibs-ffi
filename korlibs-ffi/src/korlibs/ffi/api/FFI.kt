@@ -22,6 +22,7 @@ inline class FFIPointer(val address: Long) {
 class FFIFunctionRef<T : Function<*>>(val func: T) : AutoCloseable {
     var slot: Int = -1
     var slots: Array<FFIFunctionRef<T>?>? = null
+    var closer: (() -> Unit)? = null
 
     fun allocIn(slots: Array<FFIFunctionRef<T>?>): Int {
         if (slot >= 0) return slot
@@ -33,6 +34,8 @@ class FFIFunctionRef<T : Function<*>>(val func: T) : AutoCloseable {
     }
 
     override fun close() {
+        closer?.invoke()
+        closer = null
         if (slot >= 0) this.slots?.set(slot, null)
         slot = -1
         this.slots = null

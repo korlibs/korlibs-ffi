@@ -23,7 +23,9 @@ class FFIGenerationTest {
                 listOf(0, 0, 777777777, 1928074899, -100679232, 1083181060, -1487162319, -1317266793, -167789696, -2027935736),
                 (0 until 10).map { ptr.getI32(it * 4) }
             )
-            lib.qsort(ptr, 10, 4, FFIFunctionRef { l, r -> l.getI32().compareTo(r.getI32()) })
+            FFIFunctionRef { l: FFIPointer, r: FFIPointer -> l.getI32().compareTo(r.getI32()) }.use {
+                lib.qsort(ptr, 10, 4, it)
+            }
             assertEquals(
                 listOf(-2027935736, -1487162319, -1317266793, -167789696, -100679232, 0, 0, 777777777, 1083181060, 1928074899),
                 (0 until 10).map { ptr.getI32(it * 4) }
