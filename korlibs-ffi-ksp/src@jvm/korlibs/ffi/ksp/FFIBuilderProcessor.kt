@@ -23,9 +23,12 @@ private class FFIBuilderProcessor(val environment: SymbolProcessorEnvironment) :
     override fun process(resolver: Resolver): List<KSAnnotated> {
         val isCommon = environment.platforms.size >= 2
         val mainPlatform = if (isCommon) MetadataPlatformInfo else environment.platforms.first()
-        val isJvm = if (!isCommon && mainPlatform is JvmPlatformInfo) true else false
-        val isNative = if (!isCommon && mainPlatform is NativePlatformInfo) true else false
-        val isJs = if (!isCommon && mainPlatform is JsPlatformInfo) true else false
+        val isJvm = !isCommon && mainPlatform is JvmPlatformInfo
+        val isNative = !isCommon && mainPlatform is NativePlatformInfo
+        val isJs = !isCommon && mainPlatform is JsPlatformInfo
+        val isNativeMingw = false
+
+        //logger.error("NATIVE: ${environment.options}, ${environment.platforms.filterIsInstance<NativePlatformInfo>().map { it.targetName }}")
 
         val casts = when {
             isJvm -> jnaCasts
@@ -122,10 +125,10 @@ private class FFIBuilderProcessor(val environment: SymbolProcessorEnvironment) :
                                 it.appendLine("fun FFIPointer.toPointer(): COpaquePointer? = address.toCPointer()")
 
                                 it.appendLine("private object __$classNameImpl {")
-                                it.appendLine("  val __LIB__ = platform.windows.LoadLibraryW(\"$libraryNameWin\")")
+                                it.appendLine("  val __LIB__ = korlibs.ffi.api.FFIDLOpen(\"$libraryNameWin\")")
 
                                 for (func in sym.getDeclaredFunctions()) {
-                                    it.appendLine("  val ${func.sname} by lazy { val funcName = \"${func.sname}\"; platform.windows.GetProcAddress(__LIB__, funcName)?.reinterpret<CFunction<(${func.parameters.asTypeString(casts)}) -> ${func.returnType.asString(casts)}>>() ?: error(\"Can't find ${'$'}funcName\") }")
+                                    it.appendLine("  val ${func.sname} by lazy { val funcName = \"${func.sname}\"; korlibs.ffi.api.FFIDLSym(__LIB__, funcName)?.reinterpret<CFunction<(${func.parameters.asTypeString(casts)}) -> ${func.returnType.asString(casts)}>>() ?: error(\"Can't find ${'$'}funcName\") }")
                                 }
                                 it.appendLine("}")
                             }
