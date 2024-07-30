@@ -20,9 +20,22 @@ inline class FFIPointer(val address: Long) {
 }
 
 class FFIFunctionRef<T : Function<*>>(val func: T) : AutoCloseable {
-    var address: Long? = null
+    var slot: Int = -1
+    var slots: Array<FFIFunctionRef<T>?>? = null
+
+    fun allocIn(slots: Array<FFIFunctionRef<T>?>): Int {
+        if (slot >= 0) return slot
+        slot = slots.indexOf(null)
+        this.slots = slots
+        if (slot == -1) error("No more slots available")
+        slots[slot] = this
+        return slot
+    }
 
     override fun close() {
+        if (slot >= 0) this.slots?.set(slot, null)
+        slot = -1
+        this.slots = null
     }
 }
 expect fun FFIPointer.getF64(offset: Int = 0): Double
