@@ -134,8 +134,9 @@ private class FFIBuilderProcessor(val environment: SymbolProcessorEnvironment) :
                                 it.appendLine("}")
                             }
                             isJs -> {
-                                it.appendLine("fun DenoPointer_to_FFIPointer(v: dynamic): FFIPointer = FFIPointer(js(\"Deno.UnsafePointer.value(v)\").toString().toLong())")
-                                it.appendLine("fun FFIPointer_to_DenoPointer(v: FFIPointer): dynamic { val vv = v.address.toString(); return js(\"Deno.UnsafePointer.create(BigInt(vv))\") }")
+                                it.appendLine("private fun String_to_DenoPointer(str: String): dynamic = js(\"(Deno.UnsafePointer.of(new TextEncoder().encode(str)))\")")
+                                it.appendLine("private fun DenoPointer_to_FFIPointer(v: dynamic): FFIPointer = FFIPointer(js(\"Deno.UnsafePointer.value(v)\").toString().toLong())")
+                                it.appendLine("private fun FFIPointer_to_DenoPointer(v: FFIPointer): dynamic { val vv = v.address.toString(); return js(\"Deno.UnsafePointer.create(BigInt(vv))\") }")
 
                                 it.appendLine("private fun  __load_$classNameImpl() = js(\"\"\"")
                                 it.appendLine("  (typeof Deno === 'undefined') ? {} : Deno.dlopen(Deno.build.os === 'windows' ? '$libraryNameWin' : Deno.build.os === 'darwin' ? '$libraryNameMac' : '$libraryNameLinux', {")
@@ -178,8 +179,19 @@ private class FFIBuilderProcessor(val environment: SymbolProcessorEnvironment) :
 
     val defaultCasts = object : PlatformCasts {}
     val denoCasts = object : PlatformCasts {
-        override fun cast(str: String, type: KSTypeReference?): String = type.asString().let { if (it == "FFIPointer") "DenoPointer_to_FFIPointer($str)" else str }
-        override fun revCast(str: String, type: KSTypeReference?): String = type.asString().let { if (it == "FFIPointer") "FFIPointer_to_DenoPointer($str)" else str }
+        override fun cast(str: String, type: KSTypeReference?): String = type.asString().let {
+            when (it) {
+                "FFIPointer" -> "DenoPointer_to_FFIPointer($str)"
+                else -> str
+            }
+        }
+        override fun revCast(str: String, type: KSTypeReference?): String = type.asString().let {
+            when (it) {
+                "FFIPointer" -> "FFIPointer_to_DenoPointer($str)"
+                "String" -> "String_to_DenoPointer($str)"
+                else -> str
+            }
+        }
     }
     val jnaCasts = object : PlatformCasts {
         override fun typeProcessor(type: KSTypeReference?): String = type.asString().let {
@@ -193,9 +205,26 @@ private class FFIBuilderProcessor(val environment: SymbolProcessorEnvironment) :
         override fun revCast(str: String, type: KSTypeReference?): String = type.asString().let { if (it == "FFIPointer") "$str.toPointer()" else str }
     }
     val knativeCasts = object : PlatformCasts {
-        override fun typeProcessor(type: KSTypeReference?): String = type.asString().let { if (it == "FFIPointer") "COpaquePointer?" else it }
-        override fun cast(str: String, type: KSTypeReference?): String = type.asString().let { if (it == "FFIPointer") "$str.toFFIPointer()" else str }
-        override fun revCast(str: String, type: KSTypeReference?): String = type.asString().let { if (it == "FFIPointer") "$str.toPointer()" else str }
+        override fun typeProcessor(type: KSTypeReference?): String = type.asString().let {
+            when (it) {
+                "FFIPointer" -> "COpaquePointer?"
+                "String" -> "CValues<ByteVar>"
+                else -> it
+            }
+        }
+        override fun cast(str: String, type: KSTypeReference?): String = type.asString().let {
+            when (it) {
+                "FFIPointer" -> "$str.toFFIPointer()"
+                else -> str
+            }
+        }
+        override fun revCast(str: String, type: KSTypeReference?): String = type.asString().let {
+            when (it) {
+                "FFIPointer" -> "$str.toPointer()"
+                "String" -> "$str.cstr"
+                else -> str
+            }
+        }
     }
 }
 
