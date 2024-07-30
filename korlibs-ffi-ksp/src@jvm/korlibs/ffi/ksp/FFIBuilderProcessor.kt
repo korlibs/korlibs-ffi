@@ -3,6 +3,7 @@ package korlibs.ffi.ksp
 import com.google.devtools.ksp.*
 import com.google.devtools.ksp.processing.*
 import com.google.devtools.ksp.symbol.*
+import korlibs.ffi.ksp.FFIBuilderProcessor.*
 
 class FFIBuilderProcessorProvider : SymbolProcessorProvider {
     override fun create(
@@ -68,13 +69,15 @@ private class FFIBuilderProcessor(val environment: SymbolProcessorEnvironment) :
                             it.appendLine("  private val __all__$classNameImpl = __load_$classNameImpl()")
                             it.appendLine("  private val __$classNameImpl = __all__$classNameImpl.symbols")
                         }
+                        val ffi = FFIContext()
                         for (func in sym.getDeclaredFunctions()) {
-                            val params = func.parameters.asString()
-                            val paramsCall = func.parameters.asCallString(casts)
+                            val context = FuncContext(ffi, func)
+                            val params = func.parameters.asString(context = context)
+                            val paramsCall = func.parameters.asCallString(casts, context)
                             val body = when {
                                 isCommon -> ""
                                 isJvm || isNative || isJs -> {
-                                    " = ${casts.cast("__$classNameImpl.${func.sname}($paramsCall)", func.returnType)}"
+                                    " = ${casts.cast("__$classNameImpl.${func.sname}($paramsCall)", func.returnType, context)}"
                                 }
                                 else -> " = TODO()"
                             }
@@ -109,8 +112,9 @@ private class FFIBuilderProcessor(val environment: SymbolProcessorEnvironment) :
                                 it.appendLine("private inline fun FFIPointer.toPointer() = com.sun.jna.Pointer.createConstant(this.address)")
                                 it.appendLine("private object __$classNameImpl : com.sun.jna.Library {")
                                 for (func in sym.getDeclaredFunctions()) {
-                                    val params = func.parameters.asString(casts)
-                                    it.appendLine("  external fun ${func.sname}($params): ${casts.typeProcessor(func.returnType)}")
+                                    val context = FuncContext(ffi, func)
+                                    val params = func.parameters.asString(casts, context = context)
+                                    it.appendLine("  external fun ${func.sname}($params): ${casts.typeProcessor(func.returnType, context = context)}")
                                 }
                                 it.appendLine("  init {")
                                 it.appendLine("    when {")
@@ -120,6 +124,19 @@ private class FFIBuilderProcessor(val environment: SymbolProcessorEnvironment) :
                                 it.appendLine("    }")
                                 it.appendLine("  }")
                                 it.appendLine("}")
+                                for (callback in ffi.callbacks) {
+                                    val name = ffi.getName(callback)
+                                    // fun interface QsortCompareCallback : StdCallLibrary { fun callback(l: FFIPointer, r: FFIPointer): Int }
+                                    val funcType = callback.param!!.type.resolve().arguments.first().type!!.resolve()
+                                    //logger.error("1!! ARGS: ${funcType.arguments}")
+                                    val params = funcType.arguments.dropLast(1).asString(casts, callback)
+                                    val retType = funcType.arguments.last().type.asString(casts, callback)
+                                    //val params = callback.func.parameters.asString(casts, callback)
+                                    //val retType = callback.func.returnType.asString(casts, callback)
+                                    it.appendLine("fun interface $name : com.sun.jna.Callback { fun callback($params): $retType }")
+
+
+                                }
                             }
                             isNative -> {
                                 it.appendLine("fun COpaquePointer?.toFFIPointer(): FFIPointer = FFIPointer(this.rawValue.toLong())")
@@ -129,7 +146,8 @@ private class FFIBuilderProcessor(val environment: SymbolProcessorEnvironment) :
                                 it.appendLine("  val __LIB__ = korlibs.ffi.api.FFIDLOpenPlatform(common = \"$libraryCommonLib\", linux = \"$libraryNameLinux\", macos = \"$libraryNameMac\", windows = \"$libraryNameWin\")")
 
                                 for (func in sym.getDeclaredFunctions()) {
-                                    it.appendLine("  val ${func.sname} by lazy { val funcName = \"${func.sname}\"; korlibs.ffi.api.FFIDLSym(__LIB__, funcName)?.reinterpret<CFunction<(${func.parameters.asTypeString(casts)}) -> ${func.returnType.asString(casts)}>>() ?: error(\"Can't find ${'$'}funcName\") }")
+                                    val context = FuncContext(ffi, func)
+                                    it.appendLine("  val ${func.sname} by lazy { val funcName = \"${func.sname}\"; korlibs.ffi.api.FFIDLSym(__LIB__, funcName)?.reinterpret<CFunction<(${func.parameters.asTypeString(casts, context)}) -> ${func.returnType.asString(casts, context)}>>() ?: error(\"Can't find ${'$'}funcName\") }")
                                 }
                                 it.appendLine("}")
                             }
@@ -179,13 +197,13 @@ private class FFIBuilderProcessor(val environment: SymbolProcessorEnvironment) :
 
     val defaultCasts = object : PlatformCasts {}
     val denoCasts = object : PlatformCasts {
-        override fun cast(str: String, type: KSTypeReference?): String = type.asString().let {
+        override fun cast(str: String, type: KSTypeReference?, context: FuncContext): String = type.asString().let {
             when (it) {
                 "FFIPointer" -> "DenoPointer_to_FFIPointer($str)"
                 else -> str
             }
         }
-        override fun revCast(str: String, type: KSTypeReference?): String = type.asString().let {
+        override fun revCast(str: String, type: KSTypeReference?, context: FuncContext): String = type.asString().let {
             when (it) {
                 "FFIPointer" -> "FFIPointer_to_DenoPointer($str)"
                 "String" -> "String_to_DenoPointer($str)"
@@ -193,32 +211,94 @@ private class FFIBuilderProcessor(val environment: SymbolProcessorEnvironment) :
             }
         }
     }
+
+    class FFIContext {
+        val callbacks = mutableSetOf<FuncContext>()
+
+        fun getName(context: FuncContext): String {
+            callbacks += context
+            return "Callback_${context.func.sname}_${context.param?.name?.asString() ?: ""}"
+        }
+    }
+
+    data class FuncContext(
+        val ffi: FFIContext,
+        val func: KSFunctionDeclaration,
+        val param: KSValueParameter? = null,
+    ) {
+        val funcType by lazy {
+            param!!.type.resolve().arguments.first().type!!.resolve()
+        }
+        val paramFuncParams by lazy { funcType.arguments.dropLast(1) }
+        val paramFuncRet by lazy { funcType.arguments.last() }
+    }
+
     val jnaCasts = object : PlatformCasts {
-        override fun typeProcessor(type: KSTypeReference?): String = type.asString().let {
+        override fun typeProcessor(type: KSTypeReference?, context: FuncContext): String = type.asString().let {
             when {
-                it.startsWith("FFIFunctionRef<") -> "com.sun.jna.Pointer"
+                it.startsWith("FFIFunctionRef<") -> context.ffi.getName(context)
                 it == "FFIPointer" -> "com.sun.jna.Pointer"
                 else -> it
             }
         }
-        override fun cast(str: String, type: KSTypeReference?): String = type.asString().let { if (it == "FFIPointer") "$str.toFFIPointer()" else str }
-        override fun revCast(str: String, type: KSTypeReference?): String = type.asString().let { if (it == "FFIPointer") "$str.toPointer()" else str }
+        override fun cast(str: String, type: KSTypeReference?, context: FuncContext): String = type.asString().let {
+
+            when (it) {
+                "FFIPointer" -> "$str.toFFIPointer()"
+                "Unit", "Float", "Int" -> str
+                "FFIFunctionRef" -> {
+                    TODO()
+                }
+                else -> {
+                    str
+                }
+            }
+        }
+        override fun revCast(str: String, type: KSTypeReference?, context: FuncContext): String = type.asString().let {
+            when  {
+                it == "FFIPointer" -> "$str.toPointer()"
+                it == "String" -> str
+                it.startsWith("FFIFunctionRef<") -> {
+                    // fun interface QsortCompareCallback : StdCallLibrary { fun callback(l: FFIPointer, r: FFIPointer): Int }
+                    //"{ l, r -> $str.func(l, r) }"
+                    buildString {
+                        append("{ ")
+                        context.paramFuncParams.forEachIndexed { index, param ->
+                            append("p$index, ")
+                        }
+                        append(" -> ")
+                        append(str)
+                        append(".func(")
+                        context.paramFuncParams.forEachIndexed { index, param ->
+                            append(cast("p$index", param.type, context))
+                            append(", ")
+                        }
+                        append(") }")
+                    }
+                }
+                it == "Unit" || it == "Float" || it == "Int" -> str
+                else -> {
+                    logger.error("type=$type, it=$it")
+                    str
+                }
+            }
+        }
     }
     val knativeCasts = object : PlatformCasts {
-        override fun typeProcessor(type: KSTypeReference?): String = type.asString().let {
+        override fun typeProcessor(type: KSTypeReference?, context: FuncContext): String = type.asString().let {
             when (it) {
                 "FFIPointer" -> "COpaquePointer?"
                 "String" -> "CValues<ByteVar>"
                 else -> it
             }
         }
-        override fun cast(str: String, type: KSTypeReference?): String = type.asString().let {
+        override fun cast(str: String, type: KSTypeReference?, context: FuncContext): String = type.asString().let {
             when (it) {
                 "FFIPointer" -> "$str.toFFIPointer()"
                 else -> str
             }
         }
-        override fun revCast(str: String, type: KSTypeReference?): String = type.asString().let {
+        override fun revCast(str: String, type: KSTypeReference?, context: FuncContext): String = type.asString().let {
             when (it) {
                 "FFIPointer" -> "$str.toPointer()"
                 "String" -> "$str.cstr"
@@ -230,20 +310,22 @@ private class FFIBuilderProcessor(val environment: SymbolProcessorEnvironment) :
 
 private interface PlatformCasts {
     companion object : PlatformCasts
-    fun typeProcessor(type: KSTypeReference?): String = type.asString()
-    fun cast(str: String, type: KSTypeReference?): String = str
-    fun revCast(str: String, type: KSTypeReference?): String = str
+    fun typeProcessor(type: KSTypeReference?, context: FuncContext): String = type.asString()
+    fun cast(str: String, type: KSTypeReference?, context: FuncContext): String = str
+    fun revCast(str: String, type: KSTypeReference?, context: FuncContext): String = str
 }
 
 private val KSValueArgument.sname get() = name?.asString() ?: "<ERROR>"
 private val KSDeclaration.sname get() = simpleName.asString()
 private val KSDeclaration.qname get() = qualifiedName?.asString() ?: "<ERROR>"
 private fun KSTypeReference?.asString(): String = this?.resolve()?.toString() ?: "<ERROR>"
-private fun KSTypeReference?.asString(casts: PlatformCasts = PlatformCasts): String = casts.typeProcessor(this)
-private fun List<KSValueParameter>.asString(casts: PlatformCasts = PlatformCasts): String = joinToString(", ") { "${it.name?.asString()}: ${casts.typeProcessor(it.type)}" }
-private fun List<KSValueParameter>.asTypeString(casts: PlatformCasts = PlatformCasts): String = joinToString(", ") { casts.typeProcessor(it.type) }
-private fun List<KSValueParameter>.asCallString(casts: PlatformCasts = PlatformCasts): String = joinToString(", ") {
-    casts.revCast("${it.name?.asString()}", it.type)
+private fun KSTypeReference?.asString(casts: PlatformCasts = PlatformCasts, context: FuncContext): String = casts.typeProcessor(this, context)
+@JvmName("asStringKSTypeArgument")
+private fun List<KSTypeArgument>.asString(casts: PlatformCasts = PlatformCasts, context: FuncContext): String = withIndex().joinToString(", ") { "p${it.index}: ${casts.typeProcessor(it.value.type, context)}" }
+private fun List<KSValueParameter>.asString(casts: PlatformCasts = PlatformCasts, context: FuncContext): String = joinToString(", ") { "${it.name?.asString()}: ${casts.typeProcessor(it.type, context.copy(param = it))}" }
+private fun List<KSValueParameter>.asTypeString(casts: PlatformCasts = PlatformCasts, context: FuncContext): String = joinToString(", ") { casts.typeProcessor(it.type, context.copy(param = it)) }
+private fun List<KSValueParameter>.asCallString(casts: PlatformCasts = PlatformCasts, context: FuncContext): String = joinToString(", ") {
+    casts.revCast("${it.name?.asString()}", it.type, context.copy(param = it))
 }
 
 /*
