@@ -89,6 +89,7 @@ private class FFIBuilderProcessor(val environment: SymbolProcessorEnvironment) :
 
                         val ffiAnnotation = sym.annotations.firstOrNull { it.shortName.getShortName() == "FFI" } ?: error("ERROR: FFI annotation not found")
                         val libs = ffiAnnotation.arguments.associate { it.sname to it.value.toString().takeIf { it.isNotBlank() } }
+                        val libraryCommonLib = libs["commonLib"] ?: "libc"
                         val libraryNameWin = libs["windowsLib"] ?: libs["commonLib"] ?: "msvcrt"
                         val libraryNameMac = libs["macosLib"] ?: libs["commonLib"] ?: "/usr/lib/libSystem.dylib"
                         val libraryNameLinux = libs["linuxLib"] ?: libs["commonLib"] ?: "libc"
@@ -125,7 +126,7 @@ private class FFIBuilderProcessor(val environment: SymbolProcessorEnvironment) :
                                 it.appendLine("fun FFIPointer.toPointer(): COpaquePointer? = address.toCPointer()")
 
                                 it.appendLine("private object __$classNameImpl {")
-                                it.appendLine("  val __LIB__ = korlibs.ffi.api.FFIDLOpen(\"$libraryNameWin\")")
+                                it.appendLine("  val __LIB__ = korlibs.ffi.api.FFIDLOpenPlatform(common = \"$libraryCommonLib\", linux = \"$libraryNameLinux\", macos = \"$libraryNameMac\", windows = \"$libraryNameWin\")")
 
                                 for (func in sym.getDeclaredFunctions()) {
                                     it.appendLine("  val ${func.sname} by lazy { val funcName = \"${func.sname}\"; korlibs.ffi.api.FFIDLSym(__LIB__, funcName)?.reinterpret<CFunction<(${func.parameters.asTypeString(casts)}) -> ${func.returnType.asString(casts)}>>() ?: error(\"Can't find ${'$'}funcName\") }")
