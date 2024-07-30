@@ -23,12 +23,12 @@ private class FFIBuilderProcessor(val environment: SymbolProcessorEnvironment) :
     override fun process(resolver: Resolver): List<KSAnnotated> {
         val isCommon = environment.platforms.size >= 2
         val mainPlatform = if (isCommon) MetadataPlatformInfo else environment.platforms.first()
-        val isJvm = !isCommon && mainPlatform is JvmPlatformInfo
+        val isAndroid = resolver.getClassDeclarationByName(resolver.getKSNameFromString("android.view.View")) != null
+        val isJvm = !isCommon && mainPlatform is JvmPlatformInfo && !isAndroid
         val isNative = !isCommon && mainPlatform is NativePlatformInfo
         val isJs = !isCommon && mainPlatform is JsPlatformInfo
-        val isNativeMingw = false
 
-        //logger.error("NATIVE: ${environment.options}, ${environment.platforms.filterIsInstance<NativePlatformInfo>().map { it.targetName }}")
+        //logger.error("NATIVE: ${environment.options}, ${environment.platforms.map { it.platformName }}, isAndroidProject=$isAndroidProject")
 
         val casts = when {
             isJvm -> jnaCasts
