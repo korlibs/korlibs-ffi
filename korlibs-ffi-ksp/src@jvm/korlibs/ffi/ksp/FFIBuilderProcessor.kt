@@ -209,7 +209,10 @@ private class FFIBuilderProcessor(val environment: SymbolProcessorEnvironment) :
         "Double" -> "f64"
         "FFIPointer" -> "pointer"
         "String" -> "pointer"
-        else -> type.asString()
+        else -> when {
+            type.asString().startsWith("FFIFunctionRef<") -> "function"
+            else -> type.asString()
+        }
     }
 
     val defaultCasts = object : PlatformCasts {}
