@@ -1137,5 +1137,5 @@ allprojects {
 }
 
 apiValidation {
-    ignoredProjects += listOf("korlibs-ffi-root", "korlibs-ffi-ksp")
+    ignoredProjects += listOf("korlibs-ffi-root", "korlibs-ffi-ksp", "korlibs-ffi-legacy")
 }
