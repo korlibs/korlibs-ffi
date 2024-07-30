@@ -8,6 +8,9 @@ internal interface TestMathFFI : AutoCloseable {
     //fun qsort(base: FFIPointer, number: Int, width: Int, compare: FFIFunctionRef<(FFIPointer, FFIPointer) -> Int>)
     //fun puts(str: String): Int
     //fun fputs(str: String, file: FFIPointer): Int
+    fun fopen(file: String, mode: String): FFIPointer
+    fun fclose(ptr: FFIPointer)
+    fun remove(file: String)
 
     companion object : TestMathFFI by TestMathFFI() {
         operator fun invoke(): TestMathFFI = TODO()

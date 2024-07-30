@@ -12,6 +12,9 @@ annotation class FFINativeInt
 annotation class FFIWideString
 
 inline class FFIPointer(val address: Long) {
+    companion object {
+        val NULL = FFIPointer(0L)
+    }
     @OptIn(ExperimentalStdlibApi::class)
     override fun toString(): String = "FFIPointer(address=0x${address.toHexString()})"
 }
