@@ -1,6 +1,6 @@
 package korlibs.ffi.api
 
-@FFI(commonLib = "libc.so.6", macosLib = "/usr/lib/libSystem.dylib", windowsLib = "msvcrt")
+@FFI(commonLib = "libm.so.6", macosLib = "/usr/lib/libSystem.dylib", windowsLib = "msvcrt")
 internal interface TestMathFFI : AutoCloseable {
     fun cosf(v: Float): Float
     fun malloc(size: Int): FFIPointer
