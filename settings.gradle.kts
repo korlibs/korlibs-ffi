@@ -10,15 +10,12 @@ pluginManagement {
 
     plugins {
         id("com.google.devtools.ksp") version "2.0.0-1.0.23"
-        //kotlin("jvm") version "2.0.0"
+        //id("org.jetbrains.amper.settings.plugin").version("0.2.1-dev-470")
+        //id("org.jetbrains.amper.settings.plugin").version("0.2.2")
+        //id("org.jetbrains.amper.settings.plugin").version("0.2.3-dev-473")
     }
 }
 
-plugins {
-    //id("org.jetbrains.amper.settings.plugin").version("0.2.1-dev-470")
-    //id("org.jetbrains.amper.settings.plugin").version("0.2.2")
-    //id("org.jetbrains.amper.settings.plugin").version("0.2.3-dev-473")
-}
 
 for (file in rootDir.listFiles()) {
     if (file.isDirectory() && File(file, "module.yaml").exists()) {
