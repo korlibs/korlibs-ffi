@@ -33,7 +33,10 @@ var REAL_VERSION = System.getenv("FORCED_VERSION")
 
 //val REAL_VERSION = System.getenv("FORCED_VERSION") ?: "999.0.0.999"
 
-val JVM_TARGET = JvmTarget.JVM_1_8
+//val JVM_TARGET = JvmTarget.JVM_1_8
+//val JDK_VERSION = org.gradle.api.JavaVersion.VERSION_1_8
+val JVM_TARGET = JvmTarget.JVM_11
+val JDK_VERSION = org.gradle.api.JavaVersion.VERSION_11
 val GROUP = "com.soywiz"
 
 kotlin {
@@ -56,7 +59,29 @@ allprojects {
     project.apply(plugin = "kotlin-multiplatform")
     project.apply(plugin = "android-library")
 
+    java.toolchain.languageVersion = JavaLanguageVersion.of(JDK_VERSION.majorVersion)
+    kotlin.jvmToolchain(JDK_VERSION.majorVersion.toInt())
+    afterEvaluate {
+        tasks.withType(Test::class) {
+            //this.javaLauncher.set()
+            this.javaLauncher.set(javaToolchains.launcherFor {
+                // 17 is latest at the current moment
+                languageVersion.set(JavaLanguageVersion.of(JDK_VERSION.majorVersion))
+            })
+        }
+    }
+
+    kotlin {
+        androidTarget {
+            this.compilerOptions.jvmTarget.set(JvmTarget.JVM_17)
+        }
+    }
+
     android {
+        compileOptions {
+            sourceCompatibility = JDK_VERSION
+            targetCompatibility = JDK_VERSION
+        }
         //signingConfigs {
         //    debug {
         //        […]
@@ -343,19 +368,6 @@ subprojects {
     apply(plugin = "kotlin-multiplatform")
     apply(plugin = "maven-publish")
     apply(plugin = "signing")
-
-    //val JDK_VERSION = 8
-    //java.toolchain.languageVersion = JavaLanguageVersion.of(JDK_VERSION)
-    //kotlin.jvmToolchain(JDK_VERSION)
-    //afterEvaluate {
-    //    tasks.withType(Test::class) {
-    //        //this.javaLauncher.set()
-    //        this.javaLauncher.set(javaToolchains.launcherFor {
-    //            // 17 is latest at the current moment
-    //            languageVersion.set(JavaLanguageVersion.of(JDK_VERSION))
-    //        })
-    //    }
-    //}
 
     kotlin {
         js {
@@ -1114,11 +1126,14 @@ allprojects {
             afterEvaluate {
                 tasks.withType(org.gradle.api.tasks.testing.Test::class) {
                     //println("TEST-TASK: $this")
-                    jvmArgs(
-                        "--add-opens", "java.base/java.nio=ALL-UNNAMED",
-                        //"--add-opens", "java.base/jdk.incubator.foreign=ALL-UNNAMED",
-                        "--add-opens", "java.base/sun.nio.ch=ALL-UNNAMED",
-                    )
+                    if (JDK_VERSION.majorVersion.toInt() >= 9) {
+                        jvmArgs(
+                            "-XX:+IgnoreUnrecognizedVMOptions",
+                            "--add-opens", "java.base/java.nio=ALL-UNNAMED",
+                            //"--add-opens", "java.base/jdk.incubator.foreign=ALL-UNNAMED",
+                            "--add-opens", "java.base/sun.nio.ch=ALL-UNNAMED",
+                        )
+                    }
                 }
             }
         }
@@ -1127,6 +1142,7 @@ allprojects {
 
 subprojects {
     plugins.apply("org.jetbrains.dokka")
+    plugins.apply("org.jetbrains.kotlinx.kover")
 }
 
 allprojects {
@@ -1138,4 +1154,5 @@ allprojects {
 
 apiValidation {
     ignoredProjects += listOf("korlibs-ffi-root", "korlibs-ffi-ksp", "korlibs-ffi-legacy")
+    ignoredProjects.addAll(listOf(rootProject.name))
 }
