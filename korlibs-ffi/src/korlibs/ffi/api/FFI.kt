@@ -55,6 +55,12 @@ expect fun FFIPointer.setI32(offset: Int = 0, value: Int)
 expect fun FFIPointer.setI16(offset: Int = 0, value: Short)
 expect fun FFIPointer.setI8(offset: Int = 0, value: Byte)
 
+interface FFISymbolProvider {
+    fun open(libName: String): FFIPointer
+    fun close(lib: FFIPointer)
+    fun sym(lib: FFIPointer, name: String): FFIPointer
+}
+
 expect val isSupportedFFI: Boolean
 internal expect fun transferMemory(address: Long, data: ByteArray, offset: Int, size: Int, toPointer: Boolean)
 private val SCRATCH_MEM = ByteArray(64)
