@@ -7,7 +7,7 @@ apply: [ ../common.module-template.yaml ]
 dependencies:
 
 dependencies@jvm:
-  - net.java.dev.jna:jna:5.14.0: exported
-  - net.java.dev.jna:jna-platform:5.14.0: exported
+  - net.java.dev.jna:jna:5.18.1: exported
+  - net.java.dev.jna:jna-platform:5.18.1: exported
 
 test-dependencies:

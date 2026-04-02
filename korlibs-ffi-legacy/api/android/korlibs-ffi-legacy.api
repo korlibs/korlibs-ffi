@@ -348,8 +348,8 @@ public final class korlibs/ffi/FFILibKt {
 }
 
 public abstract interface class korlibs/ffi/FFILibSym : java/lang/AutoCloseable {
-	public abstract fun close ()V
-	public abstract fun get (Ljava/lang/String;Lkotlin/reflect/KType;)Ljava/lang/Object;
+	public fun close ()V
+	public fun get (Ljava/lang/String;Lkotlin/reflect/KType;)Ljava/lang/Object;
 }
 
 public final class korlibs/ffi/FFILibSym$DefaultImpls {
