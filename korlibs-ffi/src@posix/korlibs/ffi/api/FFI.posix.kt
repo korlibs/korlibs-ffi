@@ -11,13 +11,15 @@ actual fun FFIDLSym(lib: COpaquePointer?, name: String): COpaquePointer? = platf
 
 internal actual fun transferMemory(address: Long, data: ByteArray, offset: Int, size: Int, toPointer: Boolean) {
     if (size == 0) return
+    // Use byte-by-byte copy instead of memcpy to avoid platform-dependent size_t bit-width
+    // issues when commonizing posixMain across 32-bit (watchosArm32) and 64-bit targets.
     data.usePinned {
-        val arrayPtr = it.addressOf(offset)
-        val pointerPtr = address.toCPointer<ByteVar>()
+        val dataPtr: CPointer<ByteVar> = it.addressOf(offset)
+        val memPtr: CPointer<ByteVar> = address.toCPointer()!!
         if (toPointer) {
-            memcpy(arrayPtr, pointerPtr, size.convert())
+            for (i in 0 until size) dataPtr[i] = memPtr[i]
         } else {
-            memcpy(pointerPtr, arrayPtr, size.convert())
+            for (i in 0 until size) memPtr[i] = dataPtr[i]
         }
     }
 }

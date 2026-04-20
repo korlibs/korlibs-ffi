@@ -3,7 +3,6 @@
 package korlibs.ffi.api
 
 import kotlinx.cinterop.*
-import platform.posix.memcpy
 import platform.windows.*
 
 actual fun FFIDLOpen(name: String): COpaquePointer? = LoadLibraryW(name)?.reinterpret()
@@ -12,13 +11,14 @@ actual fun FFIDLSym(lib: COpaquePointer?, name: String): COpaquePointer? = GetPr
 
 internal actual fun transferMemory(address: Long, data: ByteArray, offset: Int, size: Int, toPointer: Boolean) {
     if (size == 0) return
+    // Use byte-by-byte copy to avoid platform-dependent size_t bit-width commonization errors.
     data.usePinned {
-        val arrayPtr = it.addressOf(offset)
-        val pointerPtr = address.toCPointer<ByteVar>()
+        val dataPtr: CPointer<ByteVar> = it.addressOf(offset)
+        val memPtr: CPointer<ByteVar> = address.toCPointer()!!
         if (toPointer) {
-            memcpy(arrayPtr, pointerPtr, size.convert())
+            for (i in 0 until size) dataPtr[i] = memPtr[i]
         } else {
-            memcpy(pointerPtr, arrayPtr, size.convert())
+            for (i in 0 until size) memPtr[i] = dataPtr[i]
         }
     }
 }
