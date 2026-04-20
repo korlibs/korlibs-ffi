@@ -19,3 +19,8 @@ dependencies {
 tasks.matching { it.name.startsWith("ksp") && it.name != "kspCommonMainKotlinMetadata" }.configureEach {
     dependsOn("kspCommonMainKotlinMetadata")
 }
+
+// sourcesJar packages generated metadata sources, so it must run after KSP metadata generation.
+tasks.named("sourcesJar").configure {
+    dependsOn("kspCommonMainKotlinMetadata")
+}
