@@ -9,7 +9,7 @@ pluginManagement {
     }
 
     plugins {
-        id("com.google.devtools.ksp") version "2.0.0-1.0.23"
+        id("com.google.devtools.ksp") version "2.3.6"
         //id("org.jetbrains.amper.settings.plugin").version("0.2.1-dev-470")
         //id("org.jetbrains.amper.settings.plugin").version("0.2.2")
         //id("org.jetbrains.amper.settings.plugin").version("0.2.3-dev-473")
