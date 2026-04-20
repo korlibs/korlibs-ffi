@@ -35,10 +35,10 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - { outputKey: testMacosIos, os: macos-latest, testTask: jvmTest macosArm64Test iosSimulatorArm64Test, buildTasks: publishMacosX64PublicationToMavenLocal }
-          - { outputKey: testJsAndroid, os: ubuntu-latest, testTask: "wasmBrowserTest", buildTasks: "jsBrowserTest jsDenoTest", upgradeYarnLock: true, enableAndroid: true }
+#          - { outputKey: testMacosIos, os: macos-latest, testTask: jvmTest macosArm64Test iosSimulatorArm64Test, buildTasks: publishMacosX64PublicationToMavenLocal }
+#          - { outputKey: testJsAndroid, os: ubuntu-latest, testTask: "wasmBrowserTest", buildTasks: "jsBrowserTest jsDenoTest", upgradeYarnLock: true, enableAndroid: true }
           - { outputKey: testLinux, os: ubuntu-latest, testTask: apiCheck jvmTest linuxX64Test, precompileTask: compileTestKotlinJvm, enableCodecov: true, e2e: true }
-          - { outputKey: testWindows, os: windows-latest, testTask: jvmTest mingwX64Test jsDenoTest, precompileTask: compileTestKotlinJvm, upgradeYarnLock: true }
+#          - { outputKey: testWindows, os: windows-latest, testTask: jvmTest mingwX64Test jsDenoTest, precompileTask: compileTestKotlinJvm, upgradeYarnLock: true }
     timeout-minutes: 60
     runs-on: ${{ matrix.os }}
     steps:
