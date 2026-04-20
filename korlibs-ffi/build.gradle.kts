@@ -13,14 +13,8 @@ dependencies {
     add("kspWasmJs", project(":korlibs-ffi-ksp"))
 }
 
-val kspProcessorProject = project(":korlibs-ffi-ksp")
-
-// Native targets are enabled via kspKotlin*ProcessorClasspath (no user-facing config exists for them).
-configurations.matching {
-    it.name.startsWith("kspKotlin") && it.name.endsWith("ProcessorClasspath")
-}.configureEach {
-    dependencies.add(kspProcessorProject.dependencies.create(kspProcessorProject))
-}
+// Native targets use a checked-in src@native actual (TestMathFFI_FFIImpl.Native.kt) instead of KSP
+// generation, because native KSP tasks behave inconsistently across platforms and CI runners.
 
 tasks.matching { it.name.startsWith("ksp") && it.name != "kspCommonMainKotlinMetadata" }.configureEach {
     dependsOn("kspCommonMainKotlinMetadata")
