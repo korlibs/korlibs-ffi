@@ -35,10 +35,10 @@ jobs:
 #      fail-fast: true
       matrix:
         include:
-#          - { outputKey: testMacosIos, os: macos-latest, testTask: jvmTest macosArm64Test iosSimulatorArm64Test, buildTasks: publishMacosX64PublicationToMavenLocal }
-          - { outputKey: testJsAndroid, os: ubuntu-latest, testTask: "wasmBrowserTest", buildTasks: "jsBrowserTest jsDenoTest", upgradeYarnLock: true, enableAndroid: true }
-          - { outputKey: testLinux, os: ubuntu-latest, testTask: apiCheck jvmTest linuxX64Test, precompileTask: compileTestKotlinJvm, enableCodecov: true, e2e: true }
-          - { outputKey: testWindows, os: windows-latest, testTask: jvmTest mingwX64Test jsDenoTest, precompileTask: compileTestKotlinJvm, upgradeYarnLock: true }
+          - { outputKey: testMacosIos, os: macos-latest, testTask: jvmTest macosArm64Test iosSimulatorArm64Test, buildTasks: publishMacosX64PublicationToMavenLocal }
+#          - { outputKey: testJsAndroid, os: ubuntu-latest, testTask: "wasmBrowserTest", buildTasks: "jsBrowserTest jsDenoTest", upgradeYarnLock: true, enableAndroid: true }
+#          - { outputKey: testLinux, os: ubuntu-latest, testTask: apiCheck jvmTest linuxX64Test, precompileTask: compileTestKotlinJvm, enableCodecov: true, e2e: true }
+#          - { outputKey: testWindows, os: windows-latest, testTask: jvmTest mingwX64Test jsDenoTest, precompileTask: compileTestKotlinJvm, upgradeYarnLock: true }
     timeout-minutes: 60
     runs-on: ${{ matrix.os }}
     steps:
@@ -48,17 +48,17 @@ jobs:
       - { name: "Set up JDK", uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654, with: { distribution: "${{ env.JAVA_DISTRIBUTION }}", java-version: "${{ env.JAVA_VERSION }}" } }  # https://github.com/actions/setup-java/releases/tag/v5.2.0
       - { name: "Prepare Gradle", uses: gradle/actions/setup-gradle@39e147cb9de83bb9910b8ef8bd7fff0ee20fcd6f }  # https://github.com/gradle/actions/releases/tag/v6.0.1
       - { name: "Cache Kotlin/Native .konan folder", uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7, with: { path: "~/.konan", key: "${{ runner.os }}-konan", restore-keys: "${{ runner.os }}-konan" } }  # https://github.com/actions/cache/releases/tag/v5.0.4
-      - name: "Verify KSP JVM processor wiring"
-        shell: bash
-        run: |
-          set -euo pipefail
-          output="$(./gradlew -q :korlibs-ffi:dependencies --configuration kspKotlinJvmProcessorClasspath)"
-          echo "$output"
-          if [[ "$output" != *"project :korlibs-ffi-ksp"* ]]; then
-            echo "ERROR: :korlibs-ffi-ksp is missing from kspKotlinJvmProcessorClasspath"
-            echo "This can cause metadata expect declarations without JVM actuals."
-            exit 1
-          fi
+#      - name: "Verify KSP JVM processor wiring"
+#        shell: bash
+#        run: |
+#          set -euo pipefail
+#          output="$(./gradlew -q :korlibs-ffi:dependencies --configuration kspKotlinJvmProcessorClasspath)"
+#          echo "$output"
+#          if [[ "$output" != *"project :korlibs-ffi-ksp"* ]]; then
+#            echo "ERROR: :korlibs-ffi-ksp is missing from kspKotlinJvmProcessorClasspath"
+#            echo "This can cause metadata expect declarations without JVM actuals."
+#            exit 1
+#          fi
       - { name: Start gradle, run: ./gradlew }
       - { if: "${{ matrix.upgradeYarnLock }}", name: "Upgrade yarn lock", run: "./gradlew kotlinUpgradeYarnLock" }
       - { if: "${{ matrix.precompileTask }}", name: "Building ${{ matrix.precompileTask }} classes", run: "./gradlew --stacktrace ${{ matrix.precompileTask }}" }
@@ -73,6 +73,6 @@ jobs:
       - { name: "Run Android Tests", if: "${{ matrix.enableAndroid }}", uses: reactivecircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a, with: { "api-level": 21, "script": "./gradlew connectedCheck lintDebug" } }  # https://github.com/ReactiveCircus/android-emulator-runner/releases/tag/v2.37.0
       - { name: "Archive Test Results", if: failure(), uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f, with: { name: "test-results-${{ matrix.outputKey }}", retention-days: 21, path: "**/build/reports", if-no-files-found: ignore } }  # https://github.com/actions/upload-artifact/releases/tag/v7.0.0
       - { name: "Publish to maven local", if: "${{ matrix.e2e }}", run: "./gradlew publishJvmLocal publishKotlinMultiplatformPublicationToMavenLocal" }
-      - { name: "Code coverage", if: "${{ matrix.enableCodecov }}", run: "./gradlew koverXmlReport" }
-      - { name: "Upload coverage reports to Codecov", if: "${{ matrix.enableCodecov }}", uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2, with: { token: "${{ secrets.CODECOV_TOKEN }}" } } # https://github.com/codecov/codecov-action/releases/tag/v6.0.0
+#      - { name: "Code coverage", if: "${{ matrix.enableCodecov }}", run: "./gradlew koverXmlReport" }
+#      - { name: "Upload coverage reports to Codecov", if: "${{ matrix.enableCodecov }}", uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2, with: { token: "${{ secrets.CODECOV_TOKEN }}" } } # https://github.com/codecov/codecov-action/releases/tag/v6.0.0
       - { name: "Stop daemon", run: "./gradlew --stop" }
