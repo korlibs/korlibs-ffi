@@ -348,8 +348,8 @@ public final class korlibs/ffi/FFILibKt {
 }
 
 public abstract interface class korlibs/ffi/FFILibSym : java/lang/AutoCloseable {
-	public abstract fun close ()V
-	public abstract fun get (Ljava/lang/String;Lkotlin/reflect/KType;)Ljava/lang/Object;
+	public fun close ()V
+	public fun get (Ljava/lang/String;Lkotlin/reflect/KType;)Ljava/lang/Object;
 }
 
 public final class korlibs/ffi/FFILibSym$DefaultImpls {
@@ -453,6 +453,10 @@ public final class korlibs/ffi/FFIPointerArray : java/util/List, kotlin/jvm/inte
 	public synthetic fun add (Ljava/lang/Object;)Z
 	public fun addAll (ILjava/util/Collection;)Z
 	public fun addAll (Ljava/util/Collection;)Z
+	public fun addFirst (Lcom/sun/jna/Pointer;)V
+	public synthetic fun addFirst (Ljava/lang/Object;)V
+	public fun addLast (Lcom/sun/jna/Pointer;)V
+	public synthetic fun addLast (Ljava/lang/Object;)V
 	public fun clear ()V
 	public final fun component1 ()[I
 	public fun contains (Lcom/sun/jna/Pointer;)Z
@@ -478,6 +482,10 @@ public final class korlibs/ffi/FFIPointerArray : java/util/List, kotlin/jvm/inte
 	public synthetic fun remove (I)Ljava/lang/Object;
 	public fun remove (Ljava/lang/Object;)Z
 	public fun removeAll (Ljava/util/Collection;)Z
+	public fun removeFirst ()Lcom/sun/jna/Pointer;
+	public synthetic fun removeFirst ()Ljava/lang/Object;
+	public fun removeLast ()Lcom/sun/jna/Pointer;
+	public synthetic fun removeLast ()Ljava/lang/Object;
 	public fun replaceAll (Ljava/util/function/UnaryOperator;)V
 	public fun retainAll (Ljava/util/Collection;)Z
 	public fun set (ILcom/sun/jna/Pointer;)Lcom/sun/jna/Pointer;

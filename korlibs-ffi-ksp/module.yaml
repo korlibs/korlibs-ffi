@@ -6,4 +6,4 @@ product:
 apply: [ ../common.module-template.yaml ]
 
 dependencies@jvm:
-  - com.google.devtools.ksp:symbol-processing-api:2.0.0-1.0.23
+  - com.google.devtools.ksp:symbol-processing-api:2.3.6

@@ -3,7 +3,6 @@
 package korlibs.ffi.api
 
 import kotlinx.cinterop.*
-import platform.posix.*
 import kotlin.experimental.*
 
 actual val isSupportedFFI: Boolean = true
@@ -21,21 +20,6 @@ actual fun FFIPointer.setI64(offset: Int, value: Long) { (this.address + offset)
 actual fun FFIPointer.setI32(offset: Int, value: Int) { (this.address + offset).toCPointer<IntVar>()!![0] = value }
 actual fun FFIPointer.setI16(offset: Int, value: Short) { (this.address + offset).toCPointer<ShortVar>()!![0] = value }
 actual fun FFIPointer.setI8(offset: Int, value: Byte) { (this.address + offset).toCPointer<ByteVar>()!![0] = value }
-
-@OptIn(ExperimentalForeignApi::class)
-internal actual fun transferMemory(address: Long, data: ByteArray, offset: Int, size: Int, toPointer: Boolean) {
-    if (size == 0) return
-
-    data.usePinned {
-        val arrayPtr = it.addressOf(offset)
-        val pointerPtr = address.toCPointer<ByteVar>()
-        if (toPointer) {
-            memcpy(arrayPtr, pointerPtr, size.convert())
-        } else {
-            memcpy(pointerPtr, arrayPtr, size.convert())
-        }
-    }
-}
 
 expect fun FFIDLOpen(name: String): COpaquePointer?
 expect fun FFIDLClose(lib: COpaquePointer?): Unit

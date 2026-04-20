@@ -1,22 +1,26 @@
-import com.google.devtools.ksp.gradle.*
-
 plugins {
     id("com.google.devtools.ksp")
 }
 
 dependencies {
-    ksp(project(":korlibs-ffi-ksp"))
+    // Metadata pass generates common expect declarations.
+    add("kspCommonMainMetadata", project(":korlibs-ffi-ksp"))
+    // JVM-based targets: user-facing configs are required to enable the KSP task.
+    add("kspJvm", project(":korlibs-ffi-ksp"))
+    add("kspAndroid", project(":korlibs-ffi-ksp"))
+    // JS / WasmJs
+    add("kspJs", project(":korlibs-ffi-ksp"))
+    add("kspWasmJs", project(":korlibs-ffi-ksp"))
 }
 
-tasks.withType(KspTask::class) {
-    //println("task=$this")
-    if (this.name != "kspCommonMainKotlinMetadata") {
-        this.dependsOn("kspCommonMainKotlinMetadata")
-    }
+// Native targets use a checked-in src@native actual (TestMathFFI_FFIImpl.Native.kt) instead of KSP
+// generation, because native KSP tasks behave inconsistently across platforms and CI runners.
+
+tasks.matching { it.name.startsWith("ksp") && it.name != "kspCommonMainKotlinMetadata" }.configureEach {
+    dependsOn("kspCommonMainKotlinMetadata")
 }
-tasks.getByName("sourcesJar").dependsOn("kspCommonMainKotlinMetadata")
-//tasks.all {
-//    if (this.name.contains("ksp")) {
-//        println("task=$this :: ${this::class}")
-//    }
-//}
+
+// sourcesJar packages generated metadata sources, so it must run after KSP metadata generation.
+tasks.named("sourcesJar").configure {
+    dependsOn("kspCommonMainKotlinMetadata")
+}
